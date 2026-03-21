@@ -23,8 +23,13 @@ dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 # 1) Import tabular and vector data
 # ------------------------------------------------------------
 
-gps <- read.csv(file.path(data_dir, "MinganTelemetrie", "gps5710.csv"))
-habitats <- vect(file.path(data_dir, "MinganTelemetrie", "epipelagic_habitats.gpkg"))
+gps <- file.path(data_dir, "MinganTelemetrie", "gps5710.csv") |> read.csv()
+habitats <- file.path(
+  data_dir,
+  "MinganTelemetrie",
+  "epipelagic_habitats.gpkg"
+) |>
+  vect()
 
 
 # ------------------------------------------------------------
@@ -33,7 +38,9 @@ habitats <- vect(file.path(data_dir, "MinganTelemetrie", "epipelagic_habitats.gp
 
 gps <- gps |>
   select(-X, -n) |>
-  mutate(Date_2 = as.POSIXct(Date_2, format = "%Y-%m-%d %H:%M:%S", tz = "UTC")) |>
+  mutate(
+    Date_2 = as.POSIXct(Date_2, format = "%Y-%m-%d %H:%M:%S", tz = "UTC")
+  ) |>
   filter(Logger.ID %in% study_loggers) |>
   arrange(Logger.ID, Date_2)
 
@@ -73,7 +80,12 @@ habitats <- project(habitats, target_crs)
 # 5) Quick vector exploration
 # ------------------------------------------------------------
 
-plot(habitats, border = "grey70", col = NA, main = "Telemetry tracks and habitat polygons")
+plot(
+  habitats,
+  border = "grey70",
+  col = NA,
+  main = "Telemetry tracks and habitat polygons"
+)
 lines(tracks, lwd = 2, col = "tomato")
 points(gps_points, pch = 16, cex = 0.3, col = "orange")
 
@@ -137,8 +149,18 @@ plot(bathymetry_mingan, main = "Bathymetry cropped to the telemetry area")
 # 11) Extract bathymetry along buffered tracks
 # ------------------------------------------------------------
 
-bathymetry_mean <- extract(bathymetry_mingan, track_buffers, fun = mean, na.rm = TRUE)
-bathymetry_min <- extract(bathymetry_mingan, track_buffers, fun = min, na.rm = TRUE)
+bathymetry_mean <- extract(
+  bathymetry_mingan,
+  track_buffers,
+  fun = mean,
+  na.rm = TRUE
+)
+bathymetry_min <- extract(
+  bathymetry_mingan,
+  track_buffers,
+  fun = min,
+  na.rm = TRUE
+)
 
 
 # ------------------------------------------------------------
@@ -167,7 +189,14 @@ print(track_summary)
 # 13) Final map
 # ------------------------------------------------------------
 
-track_colors <- c("#d73027", "#4575b4", "#1a9850", "#984ea3", "#ff7f00", "#4d4d4d")
+track_colors <- c(
+  "#d73027",
+  "#4575b4",
+  "#1a9850",
+  "#984ea3",
+  "#ff7f00",
+  "#4d4d4d"
+)
 
 plot(
   bathymetry_mingan,

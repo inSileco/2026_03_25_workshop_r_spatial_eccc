@@ -30,10 +30,18 @@ dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 # 1) Import tabular and vector data
 # ------------------------------------------------------------
 
-sites <- read.csv(file.path(data_dir, "SuiviOiseauxBoreauxQuebec", "sites.csv"))
-east <- st_read(file.path(data_dir, "Basemap", "east.gpkg"))
-ecodistricts <- st_read(file.path(data_dir, "SuiviOiseauxBoreauxQuebec", "ecodistricts.gpkg"))
-rco <- st_read(file.path(data_dir, "SuiviOiseauxBoreauxQuebec", "rco.gpkg"))
+sites <- file.path(data_dir, "SuiviOiseauxBoreauxQuebec", "sites.csv") |>
+  read.csv()
+east <- file.path(data_dir, "Basemap", "east.gpkg") |>
+  st_read()
+ecodistricts <- file.path(
+  data_dir,
+  "SuiviOiseauxBoreauxQuebec",
+  "ecodistricts.gpkg"
+) |>
+  st_read()
+rco <- file.path(data_dir, "SuiviOiseauxBoreauxQuebec", "rco.gpkg") |>
+  st_read()
 
 
 # ------------------------------------------------------------
@@ -119,7 +127,11 @@ sites <- st_join(
 # ------------------------------------------------------------
 
 temperature <- read_stars(
-  file.path(data_dir, "SuiviOiseauxBoreauxQuebec", "temperature_avg_worldclim.tif")
+  file.path(
+    data_dir,
+    "SuiviOiseauxBoreauxQuebec",
+    "temperature_avg_worldclim.tif"
+  )
 )
 
 
@@ -179,7 +191,9 @@ ecodistrict_summary <- sites |>
   st_drop_geometry() |>
   filter(!is.na(Name)) |>
   count(Name, ecodistricts_area_km2, name = "n_observations") |>
-  mutate(observations_per_1000_km2 = 1000 * n_observations / ecodistricts_area_km2) |>
+  mutate(
+    observations_per_1000_km2 = 1000 * n_observations / ecodistricts_area_km2
+  ) |>
   arrange(desc(n_observations))
 
 print(species_summary)
