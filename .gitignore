@@ -47,3 +47,8 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# Project-specific
+data/
+outputs/
+.DS_Store
