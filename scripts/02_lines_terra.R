@@ -5,6 +5,7 @@
 
 library(dplyr)
 library(terra)
+library(mapview)
 
 # ------------------------------------------------------------
 # 0) Paths and study choices
@@ -119,21 +120,57 @@ print(habitat_summary)
 
 
 # ------------------------------------------------------------
-# 8) Import raster data
+# 8) Advanced analysis: GLM on line segments
+# ------------------------------------------------------------
+
+segment_glm <- glm(
+  segment_km ~ STEMMEAN + TIDEMAX + WINDMEAN,
+  data = as.data.frame(track_segments),
+  family = Gamma(link = "log")
+)
+
+print(summary(segment_glm))
+
+
+# ------------------------------------------------------------
+# 9) Advanced analysis: KDE on telemetry points
+# ------------------------------------------------------------
+
+gps_xy <- crds(gps_points)
+
+tracks_kde <- MASS::kde2d(gps_xy[, 1], gps_xy[, 2], n = 100)
+
+tracks_kde <- rast(
+  t(tracks_kde$z),
+  extent = ext(
+    min(tracks_kde$x),
+    max(tracks_kde$x),
+    min(tracks_kde$y),
+    max(tracks_kde$y)
+  ),
+  crs = target_crs
+)
+
+plot(tracks_kde, main = "Kernel density of telemetry points")
+lines(tracks, lwd = 2, col = "tomato")
+
+
+# ------------------------------------------------------------
+# 10) Import raster data
 # ------------------------------------------------------------
 
 bathymetry <- rast(file.path(data_dir, "MinganTelemetrie", "bathymetrie.tif"))
 
 
 # ------------------------------------------------------------
-# 9) Quick raster exploration
+# 11) Quick raster exploration
 # ------------------------------------------------------------
 
 plot(bathymetry, main = "Bathymetry")
 
 
 # ------------------------------------------------------------
-# 10) Project and crop the raster
+# 12) Project and crop the raster
 # ------------------------------------------------------------
 
 bathymetry <- project(bathymetry, target_crs)
@@ -146,7 +183,7 @@ plot(bathymetry_mingan, main = "Bathymetry cropped to the telemetry area")
 
 
 # ------------------------------------------------------------
-# 11) Extract bathymetry along buffered tracks
+# 13) Extract bathymetry along buffered tracks
 # ------------------------------------------------------------
 
 bathymetry_mean <- extract(
@@ -164,7 +201,7 @@ bathymetry_min <- extract(
 
 
 # ------------------------------------------------------------
-# 12) Final summary
+# 14) Final summary
 # ------------------------------------------------------------
 
 track_summary <- as.data.frame(tracks) |>
@@ -186,7 +223,7 @@ print(track_summary)
 
 
 # ------------------------------------------------------------
-# 13) Final map
+# 15) Final map
 # ------------------------------------------------------------
 
 track_colors <- c(
@@ -216,7 +253,7 @@ legend(
 
 
 # ------------------------------------------------------------
-# 14) Export outputs
+# 16) Export outputs
 # ------------------------------------------------------------
 
 writeVector(

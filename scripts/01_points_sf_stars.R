@@ -8,6 +8,7 @@ library(sf)
 library(stars)
 library(ggplot2)
 library(units)
+library(mapview)
 
 # ------------------------------------------------------------
 # 0) Paths and study choices
@@ -22,6 +23,7 @@ study_species <- c(
   "Swainson's Thrush",
   "Dark-eyed Junco"
 )
+focal_species <- "White-throated Sparrow"
 
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -229,7 +231,108 @@ print(head(rco_summary, 10))
 
 
 # ------------------------------------------------------------
-# 13) Final map
+# 13) Easy GLM: counts by ecodistrict
+# ------------------------------------------------------------
+
+points_glm <- sites |>
+  st_drop_geometry() |>
+  filter(!is.na(Name)) |>
+  group_by(Name, ecodistricts_area_km2) |>
+  summarise(
+    n_observations = n(),
+    mean_tavg_august = mean(tavg_august, na.rm = TRUE),
+    mean_coast_distance_km = mean(drop_units(coast_distance), na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  mutate(log_area_km2 = log(drop_units(ecodistricts_area_km2)))
+
+points_glm <- glm(
+  n_observations ~ mean_tavg_august + mean_coast_distance_km + offset(log_area_km2),
+  data = points_glm,
+  family = poisson()
+)
+
+print(summary(points_glm))
+
+
+# ------------------------------------------------------------
+# 14) Advanced analysis: GLM with pseudo-absences
+# ------------------------------------------------------------
+
+presence_points <- sites |>
+  filter(spNameEN == focal_species) |>
+  select(spNameEN, coast_distance, tavg_january, tavg_august) |>
+  mutate(presence = 1)
+
+pseudoabsence_points <- st_sample(qc, size = nrow(presence_points), exact = TRUE) |>
+  st_sf(presence = 0, geometry = _)
+
+pseudoabsence_points <- pseudoabsence_points |>
+  st_transform(32198) |>
+  mutate(
+    coast_distance = st_distance(geometry, coast),
+    coast_distance = set_units(coast_distance, "km")
+  ) |>
+  st_transform(4326)
+
+pseudoabsence_points <- bind_cols(
+  pseudoabsence_points,
+  st_extract(temperature, pseudoabsence_points)[[1]] |>
+    as.data.frame() |>
+    dplyr::rename(tavg_january = V1, tavg_august = V2)
+)
+
+points_glm_data <- bind_rows(
+  presence_points,
+  pseudoabsence_points |>
+    mutate(spNameEN = "Pseudo-absence") |>
+    select(spNameEN, presence, coast_distance, tavg_january, tavg_august)
+) |>
+  mutate(coast_distance_km = drop_units(coast_distance))
+
+points_glm <- glm(
+  presence ~ tavg_january + tavg_august + coast_distance_km,
+  data = points_glm_data,
+  family = binomial()
+)
+
+print(summary(points_glm))
+
+
+# ------------------------------------------------------------
+# 15) Advanced analysis: KDE on observation points
+# ------------------------------------------------------------
+
+focal_points <- sites |>
+  filter(spNameEN == focal_species) |>
+  st_transform(32198)
+
+focal_xy <- st_coordinates(focal_points)
+qc_qc <- st_transform(qc, 32198)
+qc_bbox <- st_bbox(qc_qc)
+
+points_kde <- MASS::kde2d(
+  focal_xy[, 1],
+  focal_xy[, 2],
+  n = 100,
+  h = c(50000, 50000),
+  lims = c(qc_bbox["xmin"], qc_bbox["xmax"], qc_bbox["ymin"], qc_bbox["ymax"])
+)
+
+points_kde <- st_as_stars(
+  list(kde = points_kde$z),
+  dimensions = st_dimensions(x = points_kde$x, y = points_kde$y)
+) |>
+  st_set_crs(32198)
+
+points_kde <- points_kde[qc_qc]
+
+plot(st_geometry(qc_qc), border = "grey20")
+plot(points_kde, col = viridis::viridis(100), add = TRUE)
+plot(st_geometry(focal_points), border = "#c60d0d", add = TRUE)
+
+# ------------------------------------------------------------
+# 16) Final map
 # ------------------------------------------------------------
 
 points_map <- ggplot() +
@@ -248,7 +351,7 @@ points_map
 
 
 # ------------------------------------------------------------
-# 14) Export outputs
+# 17) Export outputs
 # ------------------------------------------------------------
 
 st_write(
