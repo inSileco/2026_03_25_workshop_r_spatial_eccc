@@ -85,8 +85,8 @@ plot(st_geometry(east), col = "grey95", border = "grey40")
 plot(st_geometry(ecodistricts), border = "#35ad8f", add = TRUE)
 plot(st_geometry(sites), pch = 16, cex = 0.5, col = "tomato", add = TRUE)
 
-mapview::mapview(ecodistricts) +
-  mapview::mapview(sites, zcol = "spNameEN")
+mapview(ecodistricts) +
+  mapview(sites, zcol = "spNameEN")
 
 
 # ------------------------------------------------------------
@@ -121,8 +121,8 @@ sites <- sites |>
   ) |>
   st_transform(4326)
 
-mapview::mapview(ecodistricts, zcol = "area")
-mapview::mapview(sites, zcol = "coast_distance")
+mapview(ecodistricts, zcol = "area")
+mapview(sites, zcol = "coast_distance")
 
 
 # ------------------------------------------------------------
@@ -163,7 +163,7 @@ plot(st_geometry(east), border = "#35ad8f")
 plot(temperature[, , , 1], add = TRUE)
 plot(st_geometry(east), border = "#35ad8f", add = TRUE)
 
-mapview::mapview(temperature[, , , 1])
+mapview(temperature[, , , 1])
 
 
 # ------------------------------------------------------------
@@ -188,7 +188,7 @@ sites <- bind_cols(
     dplyr::rename(tavg_january = V1, tavg_august = V2)
 )
 
-mapview::mapview(sites, zcol = "tavg_january")
+mapview(sites, zcol = "tavg_january")
 
 
 # ------------------------------------------------------------
@@ -315,7 +315,7 @@ points_kde <- MASS::kde2d(
   focal_xy[, 1],
   focal_xy[, 2],
   n = 100,
-  h = c(50000, 50000),
+  h = c(100000, 100000),
   lims = c(qc_bbox["xmin"], qc_bbox["xmax"], qc_bbox["ymin"], qc_bbox["ymax"])
 )
 
@@ -326,10 +326,17 @@ points_kde <- st_as_stars(
   st_set_crs(32198)
 
 points_kde <- points_kde[qc_qc]
+points_kde_plot <- points_kde
+points_kde_plot[[1]] <- points_kde_plot[[1]] / max(points_kde_plot[[1]], na.rm = TRUE)
+
+# Breaks for plotting
+kde_breaks <- seq(0, 1, by = 0.1)
+kde_cols <- viridis::viridis(length(kde_breaks) - 1)
 
 plot(st_geometry(qc_qc), border = "grey20")
-plot(points_kde, col = viridis::viridis(100), add = TRUE)
+plot(points_kde_plot, breaks = kde_breaks, col = kde_cols, add = TRUE)
 plot(st_geometry(focal_points), border = "#c60d0d", add = TRUE)
+plot(qc_qc, border = "#383838", col = NA, add = TRUE)
 
 # ------------------------------------------------------------
 # 16) Final map

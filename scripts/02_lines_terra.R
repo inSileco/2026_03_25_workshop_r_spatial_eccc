@@ -13,7 +13,6 @@ library(mapview)
 
 data_dir <- "data"
 output_dir <- "outputs"
-target_crs <- "EPSG:32198"
 
 study_loggers <- c("CEN01", "CEN02", "CEN06", "GUI20", "KIA07", "LEK01")
 
@@ -25,6 +24,7 @@ dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 # ------------------------------------------------------------
 
 gps <- file.path(data_dir, "MinganTelemetrie", "gps5710.csv") |> read.csv()
+east <- vect(file.path(data_dir, "Basemap", "east.gpkg"))
 habitats <- file.path(
   data_dir,
   "MinganTelemetrie",
@@ -72,9 +72,19 @@ tracks <- vect(tracks_wkt, geom = "wkt", crs = "EPSG:4326")
 # 4) Harmonize vector projections
 # ------------------------------------------------------------
 
+target_crs <- "EPSG:32198"
 gps_points <- project(gps_points, target_crs)
 tracks <- project(tracks, target_crs)
+east <- project(east, target_crs)
 habitats <- project(habitats, target_crs)
+
+
+# ------------------------------------------------------------
+# 4) Keep the overlapping land and study polygons
+# ------------------------------------------------------------
+
+habitats <- crop(habitats, ext(tracks))
+qc <- east[east$NAME_1 == "Québec", ]
 
 
 # ------------------------------------------------------------
@@ -88,21 +98,44 @@ plot(
   main = "Telemetry tracks and habitat polygons"
 )
 lines(tracks, lwd = 2, col = "tomato")
-points(gps_points, pch = 16, cex = 0.3, col = "orange")
+points(gps_points, pch = 16, cex = 1, col = "#00eaff55")
 
+mapview(habitats, zcol = "WINDMEAN") +
+  mapview(tracks, zcol = "Logger.ID") +
+  mapview(gps_points, zcol = "Logger.ID")
 
 # ------------------------------------------------------------
-# 6) Measure track length and intersect with habitats
+# 6) Measure track length and distance to coast
 # ------------------------------------------------------------
+
+coast <- as.lines(qc)
 
 tracks$length_km <- perim(tracks) / 1000
+gps_points$coast_distance_km <- distance(gps_points, coast)[, 1] / 1000
+
+coast_summary <- as.data.frame(gps_points) |>
+  group_by(Logger.ID) |>
+  summarise(
+    mean_coast_distance_km = mean(coast_distance_km),
+    .groups = "drop"
+  )
+
+tracks <- merge(tracks, coast_summary, by = "Logger.ID")
+
+mapview(tracks, zcol = "mean_coast_distance_km")
+mapview(tracks, zcol = "length_km")
+
+# ------------------------------------------------------------
+# 7) Join the tracks to habitats
+# ------------------------------------------------------------
 
 track_segments <- intersect(tracks, habitats)
 track_segments$segment_km <- perim(track_segments) / 1000
 
 
+
 # ------------------------------------------------------------
-# 7) Summaries from vector overlap
+# 8) Summaries from vector overlap
 # ------------------------------------------------------------
 
 habitat_summary <- as.data.frame(track_segments) |>
@@ -120,92 +153,67 @@ print(habitat_summary)
 
 
 # ------------------------------------------------------------
-# 8) Advanced analysis: GLM on line segments
-# ------------------------------------------------------------
-
-segment_glm <- glm(
-  segment_km ~ STEMMEAN + TIDEMAX + WINDMEAN,
-  data = as.data.frame(track_segments),
-  family = Gamma(link = "log")
-)
-
-print(summary(segment_glm))
-
-
-# ------------------------------------------------------------
-# 9) Advanced analysis: KDE on telemetry points
-# ------------------------------------------------------------
-
-gps_xy <- crds(gps_points)
-
-tracks_kde <- MASS::kde2d(gps_xy[, 1], gps_xy[, 2], n = 100)
-
-tracks_kde <- rast(
-  t(tracks_kde$z),
-  extent = ext(
-    min(tracks_kde$x),
-    max(tracks_kde$x),
-    min(tracks_kde$y),
-    max(tracks_kde$y)
-  ),
-  crs = target_crs
-)
-
-plot(tracks_kde, main = "Kernel density of telemetry points")
-lines(tracks, lwd = 2, col = "tomato")
-
-
-# ------------------------------------------------------------
-# 10) Import raster data
+# 9) Import raster data
 # ------------------------------------------------------------
 
 bathymetry <- rast(file.path(data_dir, "MinganTelemetrie", "bathymetrie.tif"))
 
 
 # ------------------------------------------------------------
-# 11) Quick raster exploration
+# 10) Quick raster exploration
 # ------------------------------------------------------------
 
 plot(bathymetry, main = "Bathymetry")
-
+mapview(bathymetry)
 
 # ------------------------------------------------------------
-# 12) Project and crop the raster
+# 11) Project and crop the raster
 # ------------------------------------------------------------
 
 bathymetry <- project(bathymetry, target_crs)
-bathymetry[bathymetry > 0] <- NA
 
 track_buffers <- buffer(tracks, width = 1000)
-bathymetry_mingan <- crop(bathymetry, ext(track_buffers))
+bathymetry <- crop(bathymetry, ext(track_buffers))
 
-plot(bathymetry_mingan, main = "Bathymetry cropped to the telemetry area")
+plot(bathymetry, main = "Bathymetry cropped to the telemetry area")
+plot(coast, add = TRUE)
+lines(tracks, lwd = 2, col = "tomato")
 
 
 # ------------------------------------------------------------
-# 13) Extract bathymetry along buffered tracks
+# 12) Extract bathymetry along tracks and segments
 # ------------------------------------------------------------
 
 bathymetry_mean <- extract(
-  bathymetry_mingan,
+  bathymetry,
   track_buffers,
   fun = mean,
   na.rm = TRUE
 )
 bathymetry_min <- extract(
-  bathymetry_mingan,
+  bathymetry,
   track_buffers,
   fun = min,
   na.rm = TRUE
 )
 
+segment_bathymetry <- extract(
+  bathymetry,
+  track_segments,
+  fun = mean,
+  na.rm = TRUE
+) |>
+  rename(segment_bathymetry = bathymetrie)
+
+track_segments$segment_bathymetry <- segment_bathymetry$segment_bathymetry
+
 
 # ------------------------------------------------------------
-# 14) Final summary
+# 13) Summaries for analysis
 # ------------------------------------------------------------
 
 track_summary <- as.data.frame(tracks) |>
-  select(track_id, Logger.ID, length_km) |>
+  select(track_id, Logger.ID, length_km, mean_coast_distance_km) |>
   left_join(
     bathymetry_mean |>
       rename(track_id = ID, mean_bathymetry = bathymetrie),
@@ -223,7 +231,58 @@ print(track_summary)
 
 
 # ------------------------------------------------------------
-# 15) Final map
+# 14) Advanced analysis: GLM on line segments
+# ------------------------------------------------------------
+
+segment_glm <- glm(
+  segment_km ~ STEMMEAN + TIDEMAX + WINDMEAN + segment_bathymetry,
+  data = as.data.frame(track_segments),
+  family = Gamma(link = "log")
+)
+
+print(summary(segment_glm))
+
+
+# ------------------------------------------------------------
+# 15) Advanced analysis: KDE on telemetry points
+# ------------------------------------------------------------
+
+gps_xy <- crds(gps_points)
+
+tracks_kde <- MASS::kde2d(gps_xy[, 1], gps_xy[, 2], n = 100)
+
+tracks_kde <- rast(
+  t(tracks_kde$z)[nrow(t(tracks_kde$z)):1, ],
+  extent = ext(
+    min(tracks_kde$x),
+    max(tracks_kde$x),
+    min(tracks_kde$y),
+    max(tracks_kde$y)
+  ),
+  crs = target_crs
+)
+
+tracks_kde_plot <- tracks_kde / global(tracks_kde, "max", na.rm = TRUE)[1, 1]
+
+# Breaks for plotting
+# Continuous
+kde_breaks <- seq(0, 1, by = 0.1)
+kde_cols <- viridis::viridis(length(kde_breaks) - 1)
+plot(tracks_kde_plot, breaks = kde_breaks, col = kde_cols)
+points(gps_points, lwd = 2, col = "tomato")
+
+# Quantile
+kde_vals <- values(tracks_kde_plot, mat = FALSE)
+kde_vals <- kde_vals[!is.na(kde_vals)]
+kde_breaks <- quantile(kde_vals, probs = seq(0, 1, by = 0.1))
+kde_breaks <- unique(kde_breaks)
+kde_cols <- viridis::viridis(length(kde_breaks) - 1)
+plot(tracks_kde_plot, breaks = kde_breaks, col = kde_cols)
+points(gps_points, lwd = 2, col = "tomato")
+
+
+# ------------------------------------------------------------
+# 16) Final map
 # ------------------------------------------------------------
 
 track_colors <- c(
@@ -234,26 +293,19 @@ track_colors <- c(
   "#ff7f00",
   "#4d4d4d"
 )
+track_labels <- as.data.frame(tracks)$Logger.ID
 
 plot(
-  bathymetry_mingan,
+  bathymetry,
   col = hcl.colors(25, "Blues 3", rev = TRUE),
   main = "Telemetry tracks, habitats, and bathymetry"
 )
 plot(habitats, border = "grey70", col = NA, add = TRUE)
 lines(tracks, col = track_colors, lwd = 2)
-legend(
-  "bottomleft",
-  legend = tracks$Logger.ID,
-  col = track_colors,
-  lwd = 2,
-  bty = "n",
-  title = "Logger"
-)
 
 
 # ------------------------------------------------------------
-# 16) Export outputs
+# 17) Export outputs
 # ------------------------------------------------------------
 
 writeVector(
