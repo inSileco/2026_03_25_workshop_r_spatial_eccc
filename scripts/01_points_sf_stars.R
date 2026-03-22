@@ -179,9 +179,6 @@ plot(st_geometry(qc), border = "grey20", col = "#2c716844", add = TRUE)
 # 11) Extract raster values at points
 # ------------------------------------------------------------
 
-temperature_values <-
-  names(temperature_values) <- c("tavg_january", "tavg_august")
-
 sites <- bind_cols(
   sites,
   st_extract(temperature, sites)[[1]] |>
@@ -219,8 +216,8 @@ ecodistrict_summary <- sites |>
 
 rco_summary <- sites |>
   st_drop_geometry() |>
-  filter(!is.na(Name)) |>
-  count(Name, rco_area_km2, name = "n_observations") |>
+  filter(!is.na(name_en)) |>
+  count(name_en, rco_area_km2, name = "n_observations") |>
   mutate(
     observations_per_km2 = n_observations / rco_area_km2
   ) |>
@@ -247,7 +244,7 @@ points_map <- ggplot() +
   ) +
   theme_minimal()
 
-print(points_map)
+points_map
 
 
 # ------------------------------------------------------------
@@ -256,19 +253,25 @@ print(points_map)
 
 st_write(
   sites,
-  file.path(output_dir, "points_with_context.gpkg"),
+  file.path(output_dir, "sites.gpkg"),
   delete_dsn = TRUE,
   quiet = TRUE
 )
 
 write.csv(
   species_summary,
-  file.path(output_dir, "points_species_summary.csv"),
+  file.path(output_dir, "sites_species_summary.csv"),
   row.names = FALSE
 )
 
 write.csv(
   ecodistrict_summary,
-  file.path(output_dir, "points_ecodistrict_summary.csv"),
+  file.path(output_dir, "sites_ecodistrict_summary.csv"),
+  row.names = FALSE
+)
+
+write.csv(
+  rco_summary,
+  file.path(output_dir, "sites_rco_summary.csv"),
   row.names = FALSE
 )
