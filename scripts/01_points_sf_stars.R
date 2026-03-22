@@ -7,6 +7,7 @@ library(dplyr)
 library(sf)
 library(stars)
 library(ggplot2)
+library(units)
 
 # ------------------------------------------------------------
 # 0) Paths and study choices
@@ -14,7 +15,6 @@ library(ggplot2)
 
 data_dir <- "data"
 output_dir <- "outputs"
-target_crs <- 32198
 
 study_species <- c(
   "White-throated Sparrow",
@@ -91,18 +91,36 @@ mapview::mapview(ecodistricts) +
 # 6) Measure polygon area and point-to-coast distance
 # ------------------------------------------------------------
 
-ecodistricts_qc <- st_transform(ecodistricts, target_crs)
-rco_qc <- st_transform(rco, target_crs)
-sites_qc <- st_transform(sites, target_crs)
-coast_qc <- st_boundary(st_transform(qc, target_crs))
+# Area of polygons
+ecodistricts <- ecodistricts |>
+  st_transform(32198) |>
+  mutate(
+    area = st_area(geom),
+    area = set_units(area, "km^2")
+  ) |>
+  st_transform(4326)
 
-ecodistricts$ecodistricts_area_km2 <- as.numeric(st_area(ecodistricts_qc)) / 1e6
-rco$rco_area_km2 <- as.numeric(st_area(rco_qc)) / 1e6
+rco <- rco |>
+  st_transform(32198) |>
+  mutate(
+    area = st_area(geom),
+    area = set_units(area, "km^2")
+  ) |>
+  st_transform(4326)
 
-sites$coast_distance_km <- as.numeric(st_distance(sites_qc, coast_qc)) / 1000
+# Distance of points to coast
+coast <- st_transform(qc, 32198) |>
+  st_boundary()
+sites <- sites |>
+  st_transform(32198) |>
+  mutate(
+    coast_distance = st_distance(geometry, coast),
+    coast_distance = set_units(coast_distance, "km")
+  ) |>
+  st_transform(4326)
 
-mapview::mapview(ecodistricts, zcol = "ecodistricts_area_km2")
-mapview::mapview(sites, zcol = "coast_distance_km")
+mapview::mapview(ecodistricts, zcol = "area")
+mapview::mapview(sites, zcol = "coast_distance")
 
 
 # ------------------------------------------------------------
@@ -112,13 +130,13 @@ mapview::mapview(sites, zcol = "coast_distance_km")
 sites <- st_join(
   sites,
   ecodistricts |>
-    select(ECODISTRIC, Name, ecodistricts_area_km2)
+    select(ECODISTRIC, Name, ecodistricts_area_km2 = area)
 )
 
 sites <- st_join(
   sites,
   rco |>
-    select(name_en, name_fr, rco_area_km2)
+    select(name_en, name_fr, rco_area_km2 = area)
 )
 
 
@@ -150,10 +168,10 @@ mapview::mapview(temperature[, , , 1])
 # 10) Crop the raster to Quebec
 # ------------------------------------------------------------
 
-temperature_qc <- st_crop(temperature, st_bbox(qc))
+temperature <- st_crop(temperature, st_bbox(qc))
 
 plot(st_geometry(qc), border = "grey20")
-plot(temperature_qc[, , , 1], add = TRUE)
+plot(temperature[, , , 1], add = TRUE)
 plot(st_geometry(qc), border = "grey20", col = "#2c716844", add = TRUE)
 
 
@@ -161,12 +179,15 @@ plot(st_geometry(qc), border = "grey20", col = "#2c716844", add = TRUE)
 # 11) Extract raster values at points
 # ------------------------------------------------------------
 
-temperature_values <- st_extract(temperature_qc, sites)[[1]] |>
-  as.data.frame()
+temperature_values <-
+  names(temperature_values) <- c("tavg_january", "tavg_august")
 
-names(temperature_values) <- c("tavg_january", "tavg_august")
-
-sites <- bind_cols(sites, temperature_values)
+sites <- bind_cols(
+  sites,
+  st_extract(temperature, sites)[[1]] |>
+    as.data.frame() |>
+    dplyr::rename(tavg_january = V1, tavg_august = V2)
+)
 
 mapview::mapview(sites, zcol = "tavg_january")
 
@@ -182,7 +203,7 @@ species_summary <- sites |>
     n_observations = n(),
     mean_tavg_january = mean(tavg_january, na.rm = TRUE),
     mean_tavg_august = mean(tavg_august, na.rm = TRUE),
-    mean_coast_distance_km = mean(coast_distance_km, na.rm = TRUE),
+    mean_coast_distance_km = mean(coast_distance, na.rm = TRUE),
     .groups = "drop"
   ) |>
   arrange(desc(n_observations))
@@ -192,12 +213,22 @@ ecodistrict_summary <- sites |>
   filter(!is.na(Name)) |>
   count(Name, ecodistricts_area_km2, name = "n_observations") |>
   mutate(
-    observations_per_1000_km2 = 1000 * n_observations / ecodistricts_area_km2
+    observations_per_km2 = n_observations / ecodistricts_area_km2
+  ) |>
+  arrange(desc(n_observations))
+
+rco_summary <- sites |>
+  st_drop_geometry() |>
+  filter(!is.na(Name)) |>
+  count(Name, rco_area_km2, name = "n_observations") |>
+  mutate(
+    observations_per_km2 = n_observations / rco_area_km2
   ) |>
   arrange(desc(n_observations))
 
 print(species_summary)
 print(head(ecodistrict_summary, 10))
+print(head(rco_summary, 10))
 
 
 # ------------------------------------------------------------
@@ -205,7 +236,7 @@ print(head(ecodistrict_summary, 10))
 # ------------------------------------------------------------
 
 points_map <- ggplot() +
-  geom_stars(data = temperature_qc[, , , 2], downsample = 8) +
+  geom_stars(data = temperature[, , , 2], downsample = 8) +
   scale_fill_viridis_c(name = "August mean temperature") +
   geom_sf(data = qc, fill = NA, color = "grey30", linewidth = 0.4) +
   geom_sf(data = sites, aes(color = spNameEN), alpha = 0.7, size = 0.9) +
