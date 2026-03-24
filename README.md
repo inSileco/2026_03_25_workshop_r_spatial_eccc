@@ -1,91 +1,135 @@
-# 2026_03_25_workshop_r_spatial_eccc
+# Participant Manual
 
-Materiel pratique pour l'atelier ECCC sur les outils et analyses spatiales en R.
+This repository contains the hands-on exercise material for the workshop. The goal
+is to help you use R as a practical GIS: import spatial data, inspect it,
+transform it, combine vector and raster layers, extract values, build simple
+analyses, and make maps.
 
-## Principe pedagogique
+The exercises are cumulative. Pick one route and one tool, then move through
+the files in order.
 
-Le fil conducteur repose sur deux scripts paralleles:
+## What You Will Work With
 
-- `scripts/01_points_sf_stars.R`: workflow centres sur des observations ponctuelles avec `sf` et `stars`
-- `scripts/02_lines_terra.R`: workflow centres sur des trajectoires ou lignes de mouvement avec `terra`
+Two study contexts are used in the workshop.
 
-Les deux scripts doivent repondre a une question analytique tres proche:
+- Points route:
+  bird observation records in Quebec, with point locations, ecodistricts, RCO
+  polygons, and temperature rasters.
+- Lines route:
+  telemetry locations and reconstructed tracks, with habitat polygons and
+  bathymetry rasters.
 
-- ou sont les oiseaux par rapport aux unites spatiales de reference
-- quelles conditions environnementales sont associees aux observations ou deplacements
-- comment resumer et communiquer ces resultats avec des cartes et tableaux simples
+You do not need to understand every detail of the datasets before starting.
+What matters is the role of each layer:
 
-L'objectif n'est pas une symetrie parfaite des operations, mais une symetrie de structure:
+- points or lines: the observations or movements
+- polygons: reference units or study areas
+- rasters: environmental surfaces
 
-1. importer
-2. verifier et transformer les CRS
-3. manipuler les geometres et attributs
-4. visualiser rapidement
-5. croiser avec des polygones
-6. lire et manipuler des rasters
-7. extraire de l'information environnementale
-8. calculer une metrique spatiale
-9. produire un resume analytique
-10. produire une figure finale et exporter les resultats
+## Choose Your Route
 
-## Utilisation dans l'atelier
+There are two workflow routes.
 
-Chaque script complet doit ensuite etre fragmente en petits exercices.
+- Points route:
+  the simpler default route; recommended if you want the clearest path through
+  the workshop.
+- Lines route:
+  the more advanced route; recommended if you are comfortable moving a bit
+  faster and want to work with line reconstruction and line-based extraction.
 
-### Jour 1
+You can also do both if time allows.
 
-- import/export des donnees spatiales
-- creation d'objets spatiaux
-- inspection des geometres et des CRS
-- transformations et manipulations de base
-- visualisation rapide avec `plot()` et `mapview()`
-- introduction aux rasters avec lecture, projection, decoupage et affichage
+## Choose Your Tool
 
-### Jour 2
+There are two package ecosystems.
 
-- croisement vectoriel plus pousse
-- extraction raster sur points, polygones ou lignes
-- calculs de distance, longueur, aire ou proportion
-- syntheses spatiales par unite d'analyse
-- analyse simple, par exemple un modele lineaire ou une densite
-- visualisation finale plus propre et plus interpretable
+- `sf/stars`:
+  use `sf` for vector data and `stars` for raster data.
+- `terra`:
+  use `terra` for both vector and raster workflows.
 
-## Decoupage recommande en exercices
+Stay in one ecosystem while working through a route. The exercise files show
+both options clearly, but you only need to complete the section that matches
+your choice.
 
-### Script 1: points avec `sf` et `stars`
+## Exercise Sequence
 
-- Exercice 1: importer les observations ponctuelles et les polygones de reference
-- Exercice 2: inspecter les CRS, transformer et filtrer les donnees
-- Exercice 3: faire une jointure spatiale points-vers-polygones
-- Exercice 4: lire un raster, le recadrer et l'afficher
-- Exercice 5: extraire des valeurs raster aux points
-- Exercice 6: calculer une distance ou creer des buffers
-- Exercice 7: resumer les observations par polygone ou par espece
-- Exercice 8: produire une carte finale et exporter un tableau
+Work through the files in this order.
 
-### Script 2: lignes avec `terra`
+1. `01_vector_foundations.R`
+   Import data, create spatial objects, inspect CRS, export outputs.
+2. `02_early_mapping_and_lines.R`
+   Map data quickly; in the lines route, rebuild tracks from ordered points.
+3. `03_vector_operations.R`
+   Subset, measure, join, intersect, and buffer vector data.
+4. `04_raster_foundations.R`
+   Import, inspect, export, and quickly visualize rasters.
+5. `05_raster_operations.R`
+   Crop, project, mask, and manipulate rasters.
+6. `06_integrated_workflows.R`
+   Extract raster values and build summary tables.
+7. `07_spatial_analytics_glm.R`
+   Prepare analysis tables and fit a simple GLM.
+8. `08_spatial_analytics_kde.R`
+   Optional advanced exercise on kernel density estimation.
+9. `09_advanced_mapping.R`
+   Optional advanced exercise on communication-quality maps.
 
-- Exercice 1: importer des lignes de deplacement et les couches de contexte
-- Exercice 2: inspecter les CRS, transformer et filtrer les trajectoires
-- Exercice 3: croiser les lignes avec des polygones
-- Exercice 4: lire un raster, le recadrer, le masquer et l'afficher
-- Exercice 5: extraire des valeurs raster le long des lignes ou de buffers de lignes
-- Exercice 6: calculer des longueurs, distances ou proportions par unite
-- Exercice 7: resumer les trajectoires par individu, annee ou polygone
-- Exercice 8: produire une carte finale et exporter un tableau
+## Recommended Paths
 
-## Fichiers de travail
+If you want a straightforward route through the workshop:
 
-- [scripts/script.R](/Users/davidbeauchesne/DB/inSileco/spatial/2026_03_25_workshop_r_spatial_eccc/scripts/script.R): index leger qui pointe vers les deux workflows
-- [scripts/01_points_sf_stars.R](/Users/davidbeauchesne/DB/inSileco/spatial/2026_03_25_workshop_r_spatial_eccc/scripts/01_points_sf_stars.R): squelette complet pour le workflow points
-- [scripts/02_lines_terra.R](/Users/davidbeauchesne/DB/inSileco/spatial/2026_03_25_workshop_r_spatial_eccc/scripts/02_lines_terra.R): squelette complet pour le workflow lignes
+- do Exercises 1 to 7 in the points route
+- treat Exercises 8 and 9 as optional
 
-## Note sur les donnees
+If you want the more advanced route:
 
-Le choix final des jeux de donnees peut encore changer. Les scripts sont donc ecrits comme des squelettes analytiques:
+- do Exercises 1 to 7 in the lines route
+- treat Exercises 8 and 9 as optional
 
-- les objets a importer sont identifies par role analytique
-- les sections de code sont deja ordonnees
-- les endroits ou inserer les jeux de donnees finaux sont indiques clairement
+If you work quickly:
 
-Quand les donnees finales seront confirmees, on pourra transformer ces squelettes en scripts d'instructeur puis en versions a trous pour les participants.
+- complete one full route first
+- only then switch to the other route
+
+## How To Use The Exercise Files
+
+- Open one exercise file at a time.
+- Find the section for your route and your package choice.
+- Ignore the other sections.
+- Complete the `TODO` steps directly in the file or in your own working copy.
+- Keep objects from earlier exercises available, because later exercises build
+  on them.
+
+The files are written to support workshop progression, not independent use in a
+random order.
+
+## What Is Core And What Is Optional
+
+Core workshop material:
+
+- vector import and inspection
+- quick mapping
+- CRS handling
+- vector operations
+- raster import and operations
+- raster extraction
+- simple summaries and GLMs
+
+Optional or stretch material:
+
+- pseudo-absence GLM work
+- KDE
+- advanced mapping
+
+If you fall behind, stay with the core path first.
+
+## Working Style During The Workshop
+
+- Map early, even with quick rough plots.
+- Check CRS before measuring or overlaying.
+- Keep your workflow readable and stepwise.
+- Ask for help when a route or package choice becomes a blocker.
+
+The objective is not to finish every exercise. The objective is to understand
+the workflow well enough to reuse it after the workshop.
