@@ -51,6 +51,4 @@ rsconnect/
 # Project-specific
 data/
 outputs/
-scripts/en/solutions/
-scripts/fr/solutions/
 .DS_Store
