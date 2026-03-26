@@ -21,3 +21,13 @@ into a reusable function. It filters the bird observations to one or more specie
 joins environmental context, fits a simple GLM, computes a KDE, and saves a
 static \code{tmap}.
 }
+\examples{
+birds <- oiseaux_boreaux(
+  species_name = c("White-throated Sparrow", "Swainson's Thrush")
+)
+
+birds$points
+birds$glm_summary
+birds$kde
+birds$map
+}

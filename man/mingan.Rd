@@ -21,3 +21,13 @@ into a reusable function. It filters the telemetry data to one or more loggers,
 rebuilds the track, joins environmental context, fits a simple GLM, computes
 a KDE, and saves a static \code{tmap}.
 }
+\examples{
+mingan_tracks <- mingan(
+  logger_id = c("CEN01", "CEN02")
+)
+
+mingan_tracks$lines
+mingan_tracks$glm_summary
+mingan_tracks$kde
+mingan_tracks$map
+}
