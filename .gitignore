@@ -54,3 +54,4 @@ outputs/
 scripts/en/solutions/
 scripts/fr/solutions/
 .DS_Store
+inst/extdata
