@@ -50,6 +50,7 @@ rsconnect/
 
 # Project-specific
 data/
+data
 outputs/
 .DS_Store
 .positai
