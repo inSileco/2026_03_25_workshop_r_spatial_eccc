@@ -52,3 +52,4 @@ rsconnect/
 data/
 outputs/
 .DS_Store
+.positai
